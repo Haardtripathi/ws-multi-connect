@@ -80,10 +80,10 @@ Connects to a WebSocket URL.
 
 Sends a message to an active WebSocket.
 
-| Parameter | Type     | Description       |
-| --------- | -------- | ----------------- | ------------------- |
-| `url`     | `string` | The WebSocket URL |
-| `data`    | `string  | Buffer`           | The message to send |
+| Parameter | Type               | Description         |
+| --------- | ------------------ | ------------------- |
+| `url`     | `string`           | The WebSocket URL   |
+| `data`    | `string \| Buffer` | The message to send |
 
 ---
 
