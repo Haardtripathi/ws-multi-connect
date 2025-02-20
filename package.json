@@ -1,6 +1,6 @@
 {
   "name": "ws-multi-connect",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A simple WebSocket manager for multiple connections using ws",
   "main": "index.js",
   "scripts": {
@@ -19,6 +19,7 @@
   "author": "Haard Tripathi",
   "license": "MIT",
   "dependencies": {
+    "axios": "^1.7.9",
     "ws": "^8.11.0",
     "ws-multi-connect": "file:"
   }
