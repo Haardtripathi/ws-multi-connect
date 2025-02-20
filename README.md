@@ -115,15 +115,15 @@ MIT License © 2025 **Haard Tripathi** -->
 
 # WebSocket Manager 🔗🔥
 
-A simple WebSocket manager for handling multiple WebSocket connections with ease.  
+A simple WebSocket manager for handling multiple WebSocket connections with ease.\
 Built on top of [ws](https://www.npmjs.com/package/ws), this library allows you to connect, manage, and send messages with **minimal boilerplate code**.
 
 ## 🚀 Features
 
-✅ Manage **multiple WebSocket connections** effortlessly  
-✅ Supports **automatic reconnection** when a connection drops  
-✅ Supports **authentication with API keys, tokens, and headers** 🔑  
-✅ Lightweight and **dependency-free (except ws)**  
+✅ Manage **multiple WebSocket connections** effortlessly\
+✅ Supports **automatic reconnection** when a connection drops\
+✅ Supports **authentication with API keys, tokens, and headers** 🔑\
+✅ Lightweight and **dependency-free (except ws)**\
 ✅ Simple API: **connect, send, close**
 
 ---
