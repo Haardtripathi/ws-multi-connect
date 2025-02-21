@@ -143,7 +143,7 @@ Built on top of [ws](https://www.npmjs.com/package/ws), this library enables **d
 ## 📦 Installation
 
 ```sh
-npm install ws-multi-connect
+npm install ws-multi-connect axios
 ```
 
 ---
@@ -163,21 +163,42 @@ wsManager.registerFunction("sayHello", (data, ws) => {
   ws.send(JSON.stringify({ response: `Hello, ${data.name}!` }));
 });
 
-// Connect to WebSocket with authentication
-wsManager.connect("wss://example.com/socket", {
+// Connect to WebSocket with API Key Authentication
+wsManager.connect("wss://your-websocket-url.com", {
   autoReconnect: true,
   auth: {
-    url: "https://example.com/api/getToken",
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    params: { apiKey: "your-api-key" },
-    tokenPath: "access_token",
-    queryParam: "token",
-    headerKey: "Authorization",
+    headerKey: "X-Your-API-Key", // Required API key header
+    tokenPath: "", // Replace with your actual API Key
   },
   onOpen: (ws) => {
     console.log("🔗 Connected to WebSocket");
-    ws.send(JSON.stringify({ action: "subscribe", channel: "updates" }));
+
+    // Subscription message required for the WebSocket API
+    const subscribeMessage = {
+      type: "subscribe",
+      apikey: "your-api-key-here",
+      channels: ["your_channel_name"],
+    };
+
+    console.log(
+      "📤 Sending subscription message:",
+      JSON.stringify(subscribeMessage)
+    );
+    ws.send(JSON.stringify(subscribeMessage));
+  },
+  onMessage: (msg) => {
+    try {
+      const data = JSON.parse(msg.toString());
+      console.log("📩 Received data:", data);
+    } catch (error) {
+      console.error("⚠️ Error parsing message:", msg.toString());
+    }
+  },
+  onError: (error) => {
+    console.error("🚨 WebSocket error:", error);
+  },
+  onClose: () => {
+    console.log("❌ WebSocket connection closed");
   },
 });
 ```
@@ -193,14 +214,14 @@ wsManager.registerFunction("showAlert", (data) => {
   alert(`🚀 Received message: ${data.text}`);
 });
 
-wsManager.connect("wss://example.com/socket", {
+wsManager.connect("wss://your-websocket-url.com", {
   autoReconnect: true,
   onOpen: () => console.log("🔗 Connected"),
   onMessage: (msg) => console.log("📩 Received:", msg),
 });
 
 // Sending message from frontend
-wsManager.send("wss://example.com/socket", {
+wsManager.send("wss://your-websocket-url.com", {
   function: "showAlert",
   data: { text: "Hello from frontend!" },
 });
