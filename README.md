@@ -136,7 +136,7 @@ Built on top of [ws](https://www.npmjs.com/package/ws), this library enables **d
 ✅ Supports **dynamic message function execution** (pass function names dynamically!)\
 ✅ Middleware support for **message preprocessing**\
 ✅ Lightweight and **works in both Frontend (Browser) & Backend (Node.js)**\
-✅ Simple API: **connect, send, close, registerFunction**\
+✅ Simple API: **connect, send, close, registerFunction**
 
 ---
 
