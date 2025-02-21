@@ -135,7 +135,7 @@ Built on top of [ws](https://www.npmjs.com/package/ws), this library enables **d
 ✅ Supports **session-based authentication & challenge-response flows**
 ✅ Supports **dynamic message function execution** (pass function names dynamically!)
 ✅ Middleware support for **message preprocessing**
-✅ Lightweight and **dependency-free (except ws & axios)**
+✅ Lightweight and **works in both Frontend (Browser) & Backend (Node.js)**
 ✅ Simple API: **connect, send, close, registerFunction**
 
 ---
@@ -150,39 +150,59 @@ npm install ws-multi-connect axios
 
 ## 🛠️ Usage
 
+### Backend (Node.js)
+
 ```javascript
 const WebSocketManager = require("ws-multi-connect");
 
 const wsManager = new WebSocketManager();
 
-// Register dynamic functions that can be executed via WebSocket messages
+// Register dynamic functions
 wsManager.registerFunction("sayHello", (data, ws) => {
-  console.log("🟢 sayHello function executed:", data);
+  console.log("🟢 sayHello executed:", data);
   ws.send(JSON.stringify({ response: `Hello, ${data.name}!` }));
 });
 
-wsManager.registerFunction("reverseText", (data, ws) => {
-  console.log("🔁 Reversing text:", data);
-  const reversed = data.text.split("").reverse().join("");
-  ws.send(JSON.stringify({ response: reversed }));
-});
-
-// Connect to any WebSocket with authentication (if required)
+// Connect to WebSocket with authentication
 wsManager.connect("wss://example.com/socket", {
   autoReconnect: true,
   auth: {
-    url: "https://example.com/api/getToken", // API endpoint for token retrieval
-    method: "POST", // HTTP method for auth request
+    url: "https://example.com/api/getToken",
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    params: { apiKey: "your-api-key" }, // Parameters for the API request
-    tokenPath: "access_token", // Path in response JSON to extract token
-    queryParam: "token", // (Optional) Attach token as a query parameter
-    headerKey: "Authorization", // (Optional) Attach token as a header
+    params: { apiKey: "your-api-key" },
+    tokenPath: "access_token",
+    queryParam: "token",
+    headerKey: "Authorization",
   },
   onOpen: (ws) => {
     console.log("🔗 Connected to WebSocket");
     ws.send(JSON.stringify({ action: "subscribe", channel: "updates" }));
   },
+});
+```
+
+### Frontend (Browser/React)
+
+```javascript
+import WebSocketManager from "ws-multi-connect";
+
+const wsManager = new WebSocketManager();
+
+wsManager.registerFunction("showAlert", (data) => {
+  alert(`🚀 Received message: ${data.text}`);
+});
+
+wsManager.connect("wss://example.com/socket", {
+  autoReconnect: true,
+  onOpen: () => console.log("🔗 Connected"),
+  onMessage: (msg) => console.log("📩 Received:", msg),
+});
+
+// Sending message from frontend
+wsManager.send("wss://example.com/socket", {
+  function: "showAlert",
+  data: { text: "Hello from frontend!" },
 });
 ```
 
