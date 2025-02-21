@@ -129,21 +129,21 @@ Built on top of [ws](https://www.npmjs.com/package/ws), this library enables **d
 
 ## 🚀 Features
 
-✅ Manage **multiple WebSocket connections** effortlessly
-✅ Supports **automatic reconnection** when a connection drops
-✅ Supports **authentication with API keys, tokens, OAuth, and headers** 🔑
-✅ Supports **session-based authentication & challenge-response flows**
-✅ Supports **dynamic message function execution** (pass function names dynamically!)
-✅ Middleware support for **message preprocessing**
-✅ Lightweight and **works in both Frontend (Browser) & Backend (Node.js)**
-✅ Simple API: **connect, send, close, registerFunction**
+✅ Manage **multiple WebSocket connections** effortlessly\
+✅ Supports **automatic reconnection** when a connection drops\
+✅ Supports **authentication with API keys, tokens, OAuth, and headers** 🔑\
+✅ Supports **session-based authentication & challenge-response flows**\
+✅ Supports **dynamic message function execution** (pass function names dynamically!)\
+✅ Middleware support for **message preprocessing**\
+✅ Lightweight and **works in both Frontend (Browser) & Backend (Node.js)**\
+✅ Simple API: **connect, send, close, registerFunction**\
 
 ---
 
 ## 📦 Installation
 
 ```sh
-npm install ws-multi-connect axios
+npm install ws-multi-connect
 ```
 
 ---
