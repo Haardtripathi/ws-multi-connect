@@ -280,46 +280,111 @@
 // module.exports = WebSocketManager;
 
 
+
+
 const axios = require('axios');
 const WebSocket = require('ws');
 
 class WebSocketManager {
     constructor() {
-        this.clients = new Map();
-        this.authTokens = new Map();
-        this.eventHandlers = new Map();
-        this.middlewares = [];
+        this.clients = new Map(); // Store multiple WebSocket connections
+        this.authTokens = new Map(); // Store authentication tokens per URL
         this.functionRegistry = new Map(); // Store dynamic functions
     }
 
+    /**
+     * Fetch authentication token (OAuth, JWT, API keys)
+     * @param {object} authConfig - API authentication configuration
+     * @returns {Promise<string|null>} - Authentication token or null
+     */
     async fetchAuthToken(authConfig) {
         if (!authConfig || !authConfig.url) return null;
         try {
-            const response = authConfig.method === 'GET'
-                ? await axios.get(authConfig.url, { headers: authConfig.headers, params: authConfig.params })
-                : await axios.post(authConfig.url, authConfig.params, { headers: authConfig.headers });
+            let response;
 
-            return authConfig.tokenPath ? response.data[authConfig.tokenPath] : response.data;
+            if (authConfig.method === 'GET') {
+                response = await axios.get(authConfig.url, {
+                    headers: authConfig.headers || { 'Content-Type': 'application/json' },
+                    params: authConfig.params || {},
+                });
+            } else {
+                response = await axios.post(authConfig.url, authConfig.params, {
+                    headers: authConfig.headers || { 'Content-Type': 'application/json' },
+                });
+            }
+
+            if (response.data) {
+                console.log("✅ Auth Token Received:", response.data);
+                return authConfig.tokenPath ? response.data[authConfig.tokenPath] : response.data;
+            }
         } catch (error) {
             console.error("❌ Error getting token:", error.response?.data || error.message);
-            return null;
         }
+        return null;
     }
 
+    /**
+     * Fetch session-based authentication (cookies)
+     * @param {object} authConfig - API authentication configuration
+     * @returns {Promise<object|null>} - Cookie session or null
+     */
+    async fetchSession(authConfig) {
+        if (!authConfig || !authConfig.url) return null;
+        try {
+            const response = await axios.post(authConfig.url, authConfig.params, {
+                headers: authConfig.headers || { 'Content-Type': 'application/json' },
+                withCredentials: true,
+            });
+
+            if (response.headers['set-cookie']) {
+                console.log("✅ Session Cookies Received:", response.headers['set-cookie']);
+                return { cookies: response.headers['set-cookie'] };
+            }
+        } catch (error) {
+            console.error("❌ Error getting session:", error.response?.data || error.message);
+        }
+        return null;
+    }
+
+    /**
+     * Establish WebSocket connection with authentication support
+     * @param {string} url - WebSocket URL
+     * @param {object} options - Connection options
+     * @returns {Promise<WebSocket>} - WebSocket instance
+     */
     async connect(url, options = {}) {
         let wsUrl = url;
         let headers = {};
-        let authToken = options.auth ? await this.fetchAuthToken(options.auth) : null;
+        let cookies = null;
 
+        // Fetch authentication token if required
+        let authToken = null;
+        if (options.auth) {
+            authToken = await this.fetchAuthToken(options.auth);
+        }
+
+        // Fetch session-based authentication if required
+        if (options.sessionAuth) {
+            const session = await this.fetchSession(options.sessionAuth);
+            if (session) cookies = session.cookies;
+        }
+
+        // Apply authentication dynamically
         if (authToken) {
             if (options.auth.queryParam) {
-                wsUrl += `${url.includes('?') ? '&' : '?'}${options.auth.queryParam}=${authToken}`;
+                const separator = url.includes('?') ? '&' : '?';
+                wsUrl = `${url}${separator}${options.auth.queryParam}=${authToken}`;
             }
             if (options.auth.headerKey) {
                 headers[options.auth.headerKey] = `Bearer ${authToken}`;
             }
         }
 
+        if (cookies) {
+            headers['Cookie'] = cookies.join('; ');
+        }
+
+        // Prevent duplicate connections
         if (this.clients.has(wsUrl)) {
             console.log(`Already connected to ${wsUrl}`);
             return this.clients.get(wsUrl);
@@ -329,38 +394,38 @@ class WebSocketManager {
 
         ws.on('open', () => {
             console.log(`🔗 Connected to ${wsUrl}`);
-            this.executeHandler(wsUrl, 'open', ws);
+            if (options.onOpen) options.onOpen(ws);
         });
 
         ws.on('message', async (message) => {
-            let processedMessage = message.toString();
-
-            for (const middleware of this.middlewares) {
-                processedMessage = await middleware(processedMessage);
-            }
-
-            console.log(`📩 Message from ${wsUrl}:`, processedMessage);
-            this.executeDynamicFunction(processedMessage, ws);
+            console.log(`📩 Message from ${wsUrl}:`, message.toString());
+            this.executeDynamicFunction(message.toString(), ws);
+            if (options.onMessage) options.onMessage(message);
         });
 
         ws.on('close', (code, reason) => {
             console.log(`❌ Connection closed (Code: ${code}, Reason: ${reason})`);
             this.clients.delete(wsUrl);
-            this.executeHandler(wsUrl, 'close', code, reason);
             if (options.autoReconnect) {
+                console.log(`🔄 Reconnecting to ${wsUrl}...`);
                 setTimeout(() => this.connect(url, options), options.reconnectInterval || 5000);
             }
         });
 
         ws.on('error', (error) => {
             console.error(`🚨 WebSocket error on ${wsUrl}:`, error);
-            this.executeHandler(wsUrl, 'error', error);
+            if (options.onError) options.onError(error);
         });
 
         this.clients.set(wsUrl, ws);
         return ws;
     }
 
+    /**
+     * Send data to a WebSocket server
+     * @param {string} url - WebSocket URL
+     * @param {string|Buffer} data - Data to send
+     */
     send(url, data) {
         const ws = this.clients.get(url);
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -370,6 +435,10 @@ class WebSocketManager {
         }
     }
 
+    /**
+     * Close a WebSocket connection
+     * @param {string} url - WebSocket URL
+     */
     close(url) {
         const ws = this.clients.get(url);
         if (ws) {
@@ -378,6 +447,9 @@ class WebSocketManager {
         }
     }
 
+    /**
+     * Close all WebSocket connections
+     */
     closeAll() {
         for (const [url, ws] of this.clients.entries()) {
             ws.close();
@@ -386,28 +458,9 @@ class WebSocketManager {
     }
 
     /**
-     * Register a dynamic event handler
-     */
-    on(url, event, callback) {
-        if (!this.eventHandlers.has(url)) {
-            this.eventHandlers.set(url, {});
-        }
-        this.eventHandlers.get(url)[event] = callback;
-    }
-
-    executeHandler(url, event, ...args) {
-        const handlers = this.eventHandlers.get(url);
-        if (handlers && handlers[event]) {
-            handlers[event](...args);
-        }
-    }
-
-    use(middleware) {
-        this.middlewares.push(middleware);
-    }
-
-    /**
      * Register a function dynamically
+     * @param {string} name - Function name
+     * @param {Function} func - The function to execute when called via WebSocket
      */
     registerFunction(name, func) {
         this.functionRegistry.set(name, func);

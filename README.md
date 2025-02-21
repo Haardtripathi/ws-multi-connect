@@ -131,11 +131,11 @@ Built on top of [ws](https://www.npmjs.com/package/ws), this library enables **d
 
 ✅ Manage **multiple WebSocket connections** effortlessly
 ✅ Supports **automatic reconnection** when a connection drops
-✅ Supports **authentication with API keys, tokens, and headers** 🔑
+✅ Supports **authentication with API keys, tokens, OAuth, and headers** 🔑
 ✅ Supports **session-based authentication & challenge-response flows**
 ✅ Supports **dynamic message function execution** (pass function names dynamically!)
 ✅ Middleware support for **message preprocessing**
-✅ Lightweight and **dependency-free (except ws)**
+✅ Lightweight and **dependency-free (except ws & axios)**
 ✅ Simple API: **connect, send, close, registerFunction**
 
 ---
@@ -143,7 +143,7 @@ Built on top of [ws](https://www.npmjs.com/package/ws), this library enables **d
 ## 📦 Installation
 
 ```sh
-npm install ws-multi-connect
+npm install ws-multi-connect axios
 ```
 
 ---
@@ -172,6 +172,8 @@ wsManager.connect("wss://example.com/socket", {
   autoReconnect: true,
   auth: {
     url: "https://example.com/api/getToken", // API endpoint for token retrieval
+    method: "POST", // HTTP method for auth request
+    headers: { "Content-Type": "application/json" },
     params: { apiKey: "your-api-key" }, // Parameters for the API request
     tokenPath: "access_token", // Path in response JSON to extract token
     queryParam: "token", // (Optional) Attach token as a query parameter
@@ -206,6 +208,8 @@ Connects to a WebSocket URL.
 - `reconnectInterval` (default: `5000ms`): Time before trying to reconnect.
 - `auth`: (Optional) Authentication details:
   - `url`: API URL to fetch the token.
+  - `method`: HTTP method (`GET` or `POST`) for authentication.
+  - `headers`: (Optional) HTTP headers to include in the auth request.
   - `params`: Object containing authentication parameters.
   - `tokenPath`: Path to extract the token from API response.
   - `queryParam`: (Optional) Attach token as a query parameter.
