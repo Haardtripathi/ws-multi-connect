@@ -260,7 +260,7 @@ wsManager.connect(wsUrl, {
 This allows the **client (browser)** to connect and send/receive messages.
 
 ```javascript
-import WebSocketManager from "ws-multi-connect";
+import { WebSocketManager } from "ws-multi-connect";
 
 const wsManager = new WebSocketManager();
 const wsUrl = "ws://localhost:5001";
