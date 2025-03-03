@@ -1,2 +1,7 @@
 node_modules
 package-lock.json
+tests
+dist
+WebSocketManager.ts
+rollup.config.js
+tsconfig.json
