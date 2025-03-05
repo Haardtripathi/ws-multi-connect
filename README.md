@@ -1,4 +1,4 @@
-# WebSocket Manager \U0001F517\U0001F525
+# WebSocket Manager
 
 A powerful WebSocket manager for handling multiple WebSocket connections dynamically with ease.
 **Now includes WebSocket Server Support!** 🎉
@@ -15,6 +15,7 @@ Built on top of **ws**, this library enables **event-driven WebSocket communicat
 ✅ **Supports authentication (API keys, OAuth, JWT, headers)** 🔑\
 ✅ **Dynamic message function execution** (run functions from messages!)\
 ✅ **Broadcast messages to all connected clients**\
+✅ **Stores connected clients in memory for easy access**\
 ✅ **Works in both Frontend (Browser) & Backend (Node.js)**\
 ✅ **Lightweight & easy to integrate**
 
@@ -43,7 +44,50 @@ wsManager.startServer(5001); // Starts WebSocket server on port 5001
 
 ---
 
-### **2⃣ Connecting a Backend Client to WebSocket**
+### **2⃣ Managing Connected Clients**
+
+The library stores connected clients in `wsManager.clients`, allowing easy retrieval and management.
+
+#### **Example: Checking Active Clients**
+
+```javascript
+console.log(
+  "👥 Active WebSocket Clients:",
+  Array.from(wsManager.clients.keys())
+);
+```
+
+#### **Example: Broadcasting Messages to All Clients**
+
+```javascript
+wsManager.clients.forEach((client, url) => {
+  if (client.readyState === 1) {
+    client.send(JSON.stringify({ message: "Hello, everyone!" }));
+  }
+});
+```
+
+#### **Example: Storing Authenticated Users**
+
+```javascript
+wsManager.registerFunction("auth", (data, ws) => {
+  if (!data.token) {
+    console.error("❌ No token received!");
+    return;
+  }
+  console.log("🔍 Verifying token...");
+  const decoded = jwt.verify(data.token, "YOUR_SECRET");
+
+  ws.userId = decoded.id; // ✅ Store user ID inside WebSocket object
+  wsManager.clients.set(ws.userId, ws); // ✅ Store user ID in `clients` Map
+
+  console.log("👥 Active Users:", Array.from(wsManager.clients.keys()));
+});
+```
+
+---
+
+### **3⃣ Connecting a Backend Client to WebSocket**
 
 If you want your backend to **connect as a WebSocket client**:
 
@@ -62,7 +106,7 @@ wsManager.connect(wsUrl, {
 
 ---
 
-### **3⃣ Connecting a Frontend (Browser/React) Client**
+### **4⃣ Connecting a Frontend (Browser/React) Client**
 
 This allows the **client (browser)** to connect and send/receive messages.
 
@@ -80,35 +124,6 @@ wsManager.connect(wsUrl, {
 
 // Sending message from frontend
 wsManager.send(wsUrl, { text: "Hello from frontend!" });
-```
-
----
-
-### **4⃣ Registering & Executing Functions via WebSocket**
-
-You can now **register dynamic functions** that can be executed remotely via WebSocket messages.
-
-```javascript
-wsManager.registerFunction("uppercase", (data, ws) => {
-  ws.send(JSON.stringify({ response: data.text.toUpperCase() }));
-});
-```
-
-Now, any WebSocket client can send:
-
-```json
-{
-  "function": "uppercase",
-  "data": { "text": "hello world" }
-}
-```
-
-And it will return:
-
-```json
-{
-  "response": "HELLO WORLD"
-}
 ```
 
 ---
