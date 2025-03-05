@@ -226,38 +226,48 @@
 
 
 
-const axios = require('axios');
-const WebSocket = (typeof window !== 'undefined') ? window.WebSocket : require('ws');
-const http = require('http');
+// Import dependencies
+import ws from "ws";
+import http from "http";
+import axios from "axios";
+const WebSocket = typeof window !== "undefined" ? window.WebSocket : ws;
 
 class WebSocketManager {
     constructor() {
-        this.clients = new Map(); // Store multiple WebSocket connections
-        this.authTokens = new Map(); // Store authentication tokens per URL
-        this.functionRegistry = new Map(); // Store dynamic functions
-        this.server = null; // Store WebSocket server instance
-        this.lastMessage = ""; // Store last message (not permanently)
+        this.clients = new Map();
+        this.authTokens = new Map();
+        this.functionRegistry = new Map();
+        this.server = null;
+        this.lastMessage = "";
     }
 
-    /**
-     * Start a WebSocket Server
-     * @param {number} port - Port to run the WebSocket server
-     */
+    async fetchAuthToken(authConfig) {
+        if (!authConfig || !authConfig.url) return null;
+        try {
+            let response;
+            if (authConfig.method === 'GET') {
+                response = await axios.get(authConfig.url, { headers: authConfig.headers || {} });
+            } else {
+                response = await axios.post(authConfig.url, authConfig.params, { headers: authConfig.headers || {} });
+            }
+            return authConfig.tokenPath ? response.data[authConfig.tokenPath] : response.data;
+        } catch (error) {
+            console.error("❌ Error getting token:", error.response?.data || error.message);
+        }
+        return null;
+    }
+
     startServer(port = 5001) {
         const server = http.createServer();
         this.server = new WebSocket.Server({ server });
 
         this.server.on('connection', (ws) => {
             console.log("🔗 New WebSocket client connected");
-
-            // Send last message to the new client
             ws.send(JSON.stringify({ lastMessage: this.lastMessage }));
 
             ws.on('message', (message) => {
-                this.lastMessage = message.toString(); // Save last message
+                this.lastMessage = message.toString();
                 console.log(`💬 New Message: ${this.lastMessage}`);
-
-                // Broadcast message to all clients
                 this.server.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({ lastMessage: this.lastMessage }));
@@ -268,29 +278,20 @@ class WebSocketManager {
             ws.on('close', () => console.log("❌ Client Disconnected"));
         });
 
-        server.listen(port, () => {
-            console.log(`✅ WebSocket Server running on port ${port}`);
-        });
-
+        server.listen(port, () => console.log(`✅ WebSocket Server running on port ${port}`));
         return this.server;
     }
 
-    /**
-     * Connect to an existing WebSocket Server (as a client)
-     */
     async connect(url, options = {}) {
         let wsUrl = url;
-        let headers = {};
 
+        // Step 1: Handle authentication via HTTP request (if required)
         if (options.auth) {
             const authToken = await this.fetchAuthToken(options.auth);
             if (authToken) {
                 if (options.auth.queryParam) {
                     const separator = url.includes('?') ? '&' : '?';
                     wsUrl = `${url}${separator}${options.auth.queryParam}=${authToken}`;
-                }
-                if (options.auth.headerKey) {
-                    headers[options.auth.headerKey] = `Bearer ${authToken}`;
                 }
             }
         }
@@ -299,12 +300,22 @@ class WebSocketManager {
             console.log(`Already connected to ${wsUrl}`);
             return this.clients.get(wsUrl);
         }
+        const ws = new WebSocket(wsUrl, Array.isArray(options.subprotocols) ? options.subprotocols : undefined);
 
-        const ws = new WebSocket(wsUrl, { headers });
+
+
 
         ws.onopen = () => {
             console.log(`🔗 Connected to ${wsUrl}`);
-            if (options.authMessage) ws.send(JSON.stringify(options.authMessage));
+
+            // Step 3: Send authentication headers as a message
+            if (options.auth && options.auth.headerKey) {
+                ws.send(JSON.stringify({
+                    function: "auth",
+                    token: options.auth.headerKey, // ✅ Send headers manually after connecting
+                }));
+            }
+
             if (options.onOpen) options.onOpen(ws);
         };
 
@@ -331,27 +342,58 @@ class WebSocketManager {
         return ws;
     }
 
-    /**
-     * Process incoming WebSocket messages
-     */
+
+    // processIncomingMessage(message, ws, options) {
+    //     try {
+    //         const parsed = JSON.parse(message);
+    //         if (parsed.type === "ping" || parsed.type === "heartbeat") return;
+    //         if (parsed.function && this.functionRegistry.has(parsed.function)) {
+    //             this.functionRegistry.get(parsed.function)(parsed.data, ws);
+    //         } else {
+    //             console.log("📩 WebSocket message received:", parsed);
+    //         }
+    //         if (options.onMessage) options.onMessage(parsed, ws);
+    //     } catch (error) {
+    //         console.error("❌ Invalid WebSocket message format:", message);
+    //     }
+    // }
     processIncomingMessage(message, ws, options) {
         try {
             const parsed = JSON.parse(message);
+            console.log(`📩 Received WebSocket message: ${JSON.stringify(parsed)}`);
+
             if (parsed.type === "ping" || parsed.type === "heartbeat") return;
+
             if (parsed.function && this.functionRegistry.has(parsed.function)) {
-                this.functionRegistry.get(parsed.function)(parsed.data, ws);
-            } else if (parsed.event) {
-                console.log(`📩 Event: ${parsed.event}`, parsed.data);
-            } else if (Array.isArray(parsed)) {
-                console.log("📩 Array message received:", parsed);
+                console.log(`⚡ Looking up function: ${parsed.function}`);
+
+                const fn = this.functionRegistry.get(parsed.function);
+                if (!fn) {
+                    console.error(`❌ Function ${parsed.function} not found!`);
+                    return;
+                }
+
+                console.log(`🚀 Running function: ${parsed.function} with data:`, parsed);
+
+                try {
+                    fn(parsed.data, ws);  // Extract only data
+                    // ✅ Fix: Pass `parsed` directly, not `parsed.data`
+                    console.log(`✅ Successfully executed: ${parsed.function}`);
+                } catch (error) {
+                    console.error(`❌ Error executing function ${parsed.function}:`, error);
+                }
             } else {
-                console.log("📩 WebSocket message received:", parsed);
+                console.log("📩 WebSocket message received, but function not found:", parsed.function);
+                console.log("🛠 Available functions:", Array.from(this.functionRegistry.keys()));
             }
+
             if (options.onMessage) options.onMessage(parsed, ws);
         } catch (error) {
             console.error("❌ Invalid WebSocket message format:", message);
         }
     }
+
+
 
     send(url, data) {
         const ws = this.clients.get(url);
@@ -382,16 +424,24 @@ class WebSocketManager {
     }
 }
 
-/**
- * Exporting the module for both CJS (CommonJS) and ESM (ECMAScript Modules)
- */
-// CommonJS (CJS) Support
-if (typeof module !== "undefined" && module.exports) {
-    module.exports = { WebSocketManager };
-}
-
-// ECMAScript Modules (ESM) Support
+// ✅ Export only for ESM
 export { WebSocketManager };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
